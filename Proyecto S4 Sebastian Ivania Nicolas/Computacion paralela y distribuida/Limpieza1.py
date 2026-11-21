@@ -3,8 +3,10 @@ import os
 import time
 import math
 import pandas as pd
+from pathlib import Path
 
-Ruta_Dataset_Original = r"C:\Users\ivani\OneDrive\Escritorio\Proyecto S4 Sebastian Ivania Nicolas\Datos\Dataset Original.csv"
+Base_Dir = Path(__file__).resolve().parent.parent
+Ruta_Dataset_Original = Base_Dir/"Datos"/"Dataset Original.csv"
 
 #Columnas del Dataset
 Columna_Radiacion_Solar = "RADIACIÓN SOLAR (w/m2)"
@@ -115,7 +117,7 @@ if __name__ == "__main__":
     
     #Dataset limpio final
     Resultado_Paralelo.to_csv( 
-        r"C:\Users\ivani\OneDrive\Escritorio\Proyecto S4 Sebastian Ivania Nicolas\Datos\Dataset Limpio2.csv",
+        Base_Dir/"Datos"/"Dataset Limpio2.csv",
         index=False,
         encoding="utf-8-sig",
     )
