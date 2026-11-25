@@ -45,6 +45,10 @@ def Limpieza_Bloque(Bloque):
     #Quitar espacios
     Datos.columns = [str(columna).strip() for columna in Datos.columns]
     
+    #Eliminar columna de radiacion solar
+    if "RADIACIÓN SOLAR (w/m2)" in Datos.columns:
+            Datos = Datos.drop(columns=["RADIACIÓN SOLAR (w/m2)"])
+    
     #Modificar columnas de texto
     Datos["ESTACION"] = Datos["ESTACION"].astype(str).str.strip().str.upper()
     Datos["FECHA CONVERTIDA"] = Convertir_Fechas(Datos["FECHA"])
@@ -55,9 +59,6 @@ def Limpieza_Bloque(Bloque):
                 Datos[columna].astype(str).str.strip(), errors = "coerce"
             )
             
-    if Columna_Radiacion_Solar in Datos.columns:
-        Datos[Columna_Radiacion_Solar] = Datos[Columna_Radiacion_Solar].fillna(0.0)
-    
     Columnas_sin_Nulos = ["FECHA CONVERTIDA", "ESTACION"] + [c for c in Columnas_Numericas_Restantes if c in Datos.columns]
     
     Estacion_Valida = (
@@ -70,6 +71,9 @@ def Limpieza_Bloque(Bloque):
     Datos["MES"] = Datos["FECHA CONVERTIDA"].dt.month
     Datos["HORA"] = Datos["FECHA CONVERTIDA"].dt.hour
     
+    #Eliminar duplicados exactos
+    Datos = Datos.drop_duplicates()
+    
     return Datos
 
 if __name__ == "__main__":
@@ -78,11 +82,18 @@ if __name__ == "__main__":
     
     print(f"Filas cargadas: {len(Datos_Originales)}", flush = True)
     
-    print("2. Proceso secuencial", flush = True)
-    Inicio_Secuencial = time.perf_counter()
-    Resultado_Secuencial = Limpieza_Bloque(Datos_Originales)
-    Tiempo_Secuencial = time.perf_counter() - Inicio_Secuencial
+    Repeticiones = 5
     
+    print("2. Proceso secuencial", flush = True)
+    Tiempos_Secuenciales = []
+    
+    for repeticion in range(Repeticiones):
+        Inicio_Secuencial = time.perf_counter()
+        Resultado_Secuencial = Limpieza_Bloque(Datos_Originales)
+        Tiempo_Secuencial = time.perf_counter() - Inicio_Secuencial
+        Tiempos_Secuenciales.append(Tiempo_Secuencial)
+    
+    Tiempo_Secuencial = sum(Tiempos_Secuenciales)/Repeticiones
     print(f"Tiempo del proceso secuencial: {Tiempo_Secuencial: .4f} segundos", flush = True)
     
     #Procesis
@@ -97,13 +108,20 @@ if __name__ == "__main__":
     
     print(f"3. Proceso Paralelo con {Cantidad_de_Procesos} al tiempo", flush = True)
     
-    Inicio_Paralelo = time.perf_counter()
+    Tiempos_Paralelos = []
     
-    with mp.Pool(processes = Cantidad_de_Procesos) as Grupo_Procesos:
-        Bloques_Limpios = Grupo_Procesos.map(Limpieza_Bloque, Bloques)
+    for repeticion in range(Repeticiones):
+        Inicio_Paralelo = time.perf_counter()
     
-    Resultado_Paralelo = pd.concat(Bloques_Limpios, ignore_index = True)
-    Tiempo_Paralelo = time.perf_counter() - Inicio_Paralelo
+        with mp.Pool(processes = Cantidad_de_Procesos) as Grupo_Procesos:
+            Bloques_Limpios = Grupo_Procesos.map(Limpieza_Bloque, Bloques)
+    
+        Resultado_Paralelo = pd.concat(Bloques_Limpios, ignore_index = True)
+        Resultado_Paralelo = Resultado_Paralelo.drop_duplicates()
+        Tiempo_Paralelo = time.perf_counter() - Inicio_Paralelo
+        Tiempos_Paralelos.append(Tiempo_Paralelo)
+    
+    Tiempo_Paralelo = sum(Tiempos_Paralelos)/Repeticiones
     
     Aceleracion = Tiempo_Secuencial/Tiempo_Paralelo if Tiempo_Paralelo > 0 else 0.0
     Eficiencia = Aceleracion/Cantidad_de_Procesos if Cantidad_de_Procesos > 0 else 0.0
@@ -111,13 +129,14 @@ if __name__ == "__main__":
     #Resultados
     print("\n 4. Resultados", flush = True)
     print(f"Filas limpias: {len(Resultado_Paralelo)}", flush = True)
-    print(f"Tiempo secuencial: {Tiempo_Secuencial: .4f} segundos", flush = True)
+    print(f"Tiempo promedio secuencial: {Tiempo_Secuencial: .4f} segundos", flush = True)
+    print(f"Tiempo promedio paralelo: {Tiempo_Paralelo: .4f} segundos", flush = True)
     print(f"Aceleracion o Speedup: {Aceleracion: .2f} x", flush = True)
     print(f"Eficiencia: {Eficiencia: .2%}", flush = True)
     
     #Dataset limpio final
     Resultado_Paralelo.to_csv( 
-        Base_Dir/"Datos"/"Dataset Limpio2.csv",
+        Base_Dir/"Datos"/"-Dataset Limpio2New.csv",
         index=False,
         encoding="utf-8-sig",
     )
